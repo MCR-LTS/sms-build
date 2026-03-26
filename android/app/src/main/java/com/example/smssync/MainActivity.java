@@ -1,7 +1,6 @@
 package com.example.smssync;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -19,6 +18,10 @@ import androidx.core.content.ContextCompat;
 import java.net.Socket;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String PREF_NAME = "SmsSyncPrefs";
+    private static final String KEY_SERVER_IP = "server_ip";
+    private static final int REQUEST_SMS_PERMISSION = 1;
+    private static final int SERVER_PORT = 8888;
 
     private EditText ipInput;
     private TextView statusText;
@@ -32,71 +35,84 @@ public class MainActivity extends AppCompatActivity {
         ipInput = findViewById(R.id.ip_input);
         Button saveBtn = findViewById(R.id.save_btn);
         statusText = findViewById(R.id.status_text);
-        prefs = getSharedPreferences("SmsSyncPrefs", MODE_PRIVATE);
+        prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
-        // 加载保存的 IP
-        String savedIp = prefs.getString("server_ip", "");
-        ipInput.setText(savedIp);
+        loadSavedIp();
         checkPermissions();
 
         saveBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String ip = ipInput.getText().toString().trim();
-                if (ip.isEmpty()) {
-                    Toast.makeText(MainActivity.this, "请输入 IP 地址", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-
-                // 保存 IP
-                prefs.edit().putString("server_ip", ip).apply();
-                sendTestMessage(ip);
+                saveIpAndTest();
             }
         });
     }
 
-    private void checkPermissions() {
-        boolean receiveSmsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS)
-                == PackageManager.PERMISSION_GRANTED;
-        boolean readSmsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS)
-                == PackageManager.PERMISSION_GRANTED;
+    private void loadSavedIp() {
+        String savedIp = prefs.getString(KEY_SERVER_IP, "");
+        ipInput.setText(savedIp);
+    }
 
-        if (!receiveSmsGranted || !readSmsGranted) {
+    private void saveIpAndTest() {
+        String ip = ipInput.getText().toString().trim();
+        if (ip.isEmpty()) {
+            showToast("请输入 IP 地址", Toast.LENGTH_SHORT);
+            return;
+        }
+
+        prefs.edit().putString(KEY_SERVER_IP, ip).apply();
+        sendTestMessage(ip);
+    }
+
+    private void checkPermissions() {
+        if (!hasSmsPermissions()) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS},
-                    1);
+                    REQUEST_SMS_PERMISSION);
         } else {
-            statusText.setText("权限已获取");
-            statusText.setTextColor(0xFF00AA00); // Green
+            updateStatus("权限已获取", 0xFF00AA00);
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1
+        if (requestCode == REQUEST_SMS_PERMISSION
                 && grantResults.length >= 2
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED
                 && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-            statusText.setText("权限已获取");
-            statusText.setTextColor(0xFF00AA00);
+            updateStatus("权限已获取", 0xFF00AA00);
         } else {
-            statusText.setText("权限被拒绝");
+            updateStatus("权限被拒绝", 0xFFFF6666);
         }
+    }
+
+    private boolean hasSmsPermissions() {
+        boolean receiveSmsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean readSmsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS)
+                == PackageManager.PERMISSION_GRANTED;
+        return receiveSmsGranted && readSmsGranted;
+    }
+
+    private void updateStatus(String text, int color) {
+        statusText.setText(text);
+        statusText.setTextColor(color);
+    }
+
+    private void showToast(final String text, final int duration) {
+        Toast.makeText(MainActivity.this, text, duration).show();
     }
 
     private void sendTestMessage(final String ip) {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    Socket socket = new Socket(ip, 8888);
-                    socket.close();
-                    
+                try (Socket socket = new Socket(ip, SERVER_PORT)) {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(MainActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
+                            showToast("连接成功", Toast.LENGTH_SHORT);
                         }
                     });
                 } catch (Exception e) {
@@ -104,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            Toast.makeText(MainActivity.this, error, Toast.LENGTH_LONG).show();
+                            showToast(error, Toast.LENGTH_LONG);
                         }
                     });
                 }

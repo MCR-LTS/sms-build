@@ -15,6 +15,7 @@ import java.util.Locale;
 
 public class ClipboardServer {
     private static final int PORT = 8888;
+    private static final String MAC_NAME = "mac";
 
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -24,21 +25,26 @@ public class ClipboardServer {
             printRealIp();
             
             while (true) {
-                try (Socket clientSocket = serverSocket.accept();
-                     BufferedReader reader = new BufferedReader(
-                             new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8))) {
-                    String message = reader.readLine();
-
-                    if (message != null && !message.isEmpty()) {
-                        System.out.println("接收到消息: " + message);
-                        setClipboard(message);
-                    }
-                } catch (Exception e) {
-                    System.err.println(e.getMessage());
-                }
+                handleClient(serverSocket);
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void handleClient(ServerSocket serverSocket) {
+        try (Socket clientSocket = serverSocket.accept();
+             BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8))) {
+            String message = reader.readLine();
+            if (message == null || message.isEmpty()) {
+                return;
+            }
+
+            System.out.println("接收到消息: " + message);
+            setClipboard(message);
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
         }
     }
 
@@ -47,7 +53,10 @@ public class ClipboardServer {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements()) {
                 NetworkInterface iface = interfaces.nextElement();
-                if (iface.isLoopback() || !iface.isUp()) continue;
+                if (iface.isLoopback() || !iface.isUp()) {
+                    continue;
+                }
+
                 Enumeration<InetAddress> addresses = iface.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
@@ -73,7 +82,7 @@ public class ClipboardServer {
 
     private static boolean isMac() {
         String osName = System.getProperty("os.name", "");
-        return osName.toLowerCase(Locale.ROOT).contains("mac");
+        return osName.toLowerCase(Locale.ROOT).contains(MAC_NAME);
     }
 
     private static void setClipboardOnMac(String text) {
@@ -91,5 +100,4 @@ public class ClipboardServer {
             throw new RuntimeException(e);
         }
     }
-
 }
