@@ -3,6 +3,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -10,6 +11,7 @@ import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Enumeration;
+import java.util.Locale;
 
 public class ClipboardServer {
     private static final int PORT = 8888;
@@ -59,9 +61,35 @@ public class ClipboardServer {
     }
 
     private static void setClipboard(String text) {
-        StringSelection selection = new StringSelection(text);
-        Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-        clipboard.setContents(selection, selection);
+        if (isMac()) {
+            setClipboardOnMac(text);
+        } else {
+            StringSelection selection = new StringSelection(text);
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            clipboard.setContents(selection, selection);
+        }
         System.out.println("成功复制到剪贴板！");
     }
+
+    private static boolean isMac() {
+        String osName = System.getProperty("os.name", "");
+        return osName.toLowerCase(Locale.ROOT).contains("mac");
+    }
+
+    private static void setClipboardOnMac(String text) {
+        try {
+            Process process = new ProcessBuilder("pbcopy").start();
+            try (OutputStream outputStream = process.getOutputStream()) {
+                outputStream.write(text.getBytes(StandardCharsets.UTF_8));
+            }
+
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                throw new RuntimeException("pbcopy exited with code " + exitCode);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
