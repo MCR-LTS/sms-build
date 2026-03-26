@@ -3,6 +3,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -14,23 +15,22 @@ public class ClipboardServer {
     private static final int PORT = 8888;
 
     public static void main(String[] args) {
-        try {
-            ServerSocket serverSocket = new ServerSocket(PORT);
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            serverSocket.setReuseAddress(true);
             System.out.println("服务端启动！正在监听端口 " + PORT);
             System.out.println("本机 IP 地址 ");
             printRealIp();
             
             while (true) {
-                try {
-                    Socket clientSocket = serverSocket.accept();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"));
+                try (Socket clientSocket = serverSocket.accept();
+                     BufferedReader reader = new BufferedReader(
+                             new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8))) {
                     String message = reader.readLine();
 
                     if (message != null && !message.isEmpty()) {
                         System.out.println("接收到消息: " + message);
                         setClipboard(message);
                     }
-                    clientSocket.close();
                 } catch (Exception e) {
                     System.err.println(e.getMessage());
                 }

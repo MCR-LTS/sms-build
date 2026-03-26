@@ -57,8 +57,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
+        boolean receiveSmsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean readSmsGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS)
+                == PackageManager.PERMISSION_GRANTED;
+
+        if (!receiveSmsGranted || !readSmsGranted) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS},
                     1);
@@ -71,7 +75,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == 1
+                && grantResults.length >= 2
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
             statusText.setText("权限已获取");
             statusText.setTextColor(0xFF00AA00);
         } else {
