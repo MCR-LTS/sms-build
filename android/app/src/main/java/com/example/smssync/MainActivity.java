@@ -16,7 +16,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import java.io.PrintWriter;
 import java.net.Socket;
 
 public class MainActivity extends AppCompatActivity {
@@ -92,9 +91,6 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 try {
                     Socket socket = new Socket(ip, 8888);
-                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                    out.println("测试连接成功");
-                    out.close();
                     socket.close();
                     
                     runOnUiThread(new Runnable() {

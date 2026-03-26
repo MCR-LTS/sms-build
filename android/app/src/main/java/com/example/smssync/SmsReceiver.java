@@ -4,8 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Build;
-import android.os.Bundle;
+import android.provider.Telephony;
 import android.telephony.SmsMessage;
 import android.util.Log;
 import java.io.PrintWriter;
@@ -23,36 +22,16 @@ public class SmsReceiver extends BroadcastReceiver {
             return;
         }
 
-        Bundle bundle = intent.getExtras();
-        if (bundle == null) {
+        SmsMessage[] messages = Telephony.Sms.Intents.getMessagesFromIntent(intent);
+        if (messages == null || messages.length == 0) {
+            Log.e(TAG, "没有解析到短信内容");
             return;
         }
 
-        Object[] pdus = (Object[]) bundle.get("pdus");
-        if (pdus == null || pdus.length == 0) {
-            return;
-        }
-
-        String format = bundle.getString("format");
         String sender = null;
         StringBuilder messageBuilder = new StringBuilder();
 
-        for (Object pdu : pdus) {
-            if (!(pdu instanceof byte[])) {
-                continue;
-            }
-
-            SmsMessage smsMessage;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                smsMessage = SmsMessage.createFromPdu((byte[]) pdu, format);
-            } else {
-                smsMessage = SmsMessage.createFromPdu((byte[]) pdu);
-            }
-
-            if (smsMessage == null) {
-                continue;
-            }
-
+        for (SmsMessage smsMessage : messages) {
             if (sender == null) {
                 sender = smsMessage.getDisplayOriginatingAddress();
             }
@@ -68,17 +47,17 @@ public class SmsReceiver extends BroadcastReceiver {
         Log.d(TAG, "收到 " + sender + " 的短信: " + messageBody);
 
         String code = extractVerificationCode(messageBody);
-        String contentToSend = code != null ? code : messageBody;
-
-        if (code != null) {
-            Log.d(TAG, "验证码: " + code);
+        if (code == null) {
+            Log.d(TAG, "未提取到验证码");
+            return;
         }
 
-        sendToComputer(context, contentToSend);
+        Log.d(TAG, "验证码: " + code);
+        sendToComputer(context, code);
     }
 
     private String extractVerificationCode(String message) {
-        Pattern pattern = Pattern.compile("(?<!\\d)\\d{4,6}(?!\\d)");
+        Pattern pattern = Pattern.compile("(?<!\\d)\\d{4,8}(?!\\d)");
         Matcher matcher = pattern.matcher(message);
 
         if (matcher.find()) {
