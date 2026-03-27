@@ -18,15 +18,22 @@
         android:id="@+id/ip_input"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="例如: 192.168.1.100"
+        android:hint="例如: 11.4.5.14"
         android:inputType="textUri"/>
+
+    <Button
+        android:id="@+id/discover_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="自动发现电脑"
+        android:layout_marginTop="16dp"/>
 
     <Button
         android:id="@+id/save_btn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="保存并测试连接"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="12dp"/>
 
     <TextView
         android:id="@+id/status_text"
