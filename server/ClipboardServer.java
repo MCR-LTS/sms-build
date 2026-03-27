@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -85,6 +86,7 @@ public class ClipboardServer {
             );
 
             discoverySocket.send(responsePacket);
+            System.out.println("发现请求来自: " + packet.getAddress().getHostAddress());
             System.out.println("已回复自动发现请求: " + serverIp);
         } catch (Exception e) {
             System.err.println(e.getMessage());
@@ -108,11 +110,33 @@ public class ClipboardServer {
     }
 
     private static String getLocalIpForClient(InetAddress clientAddress) {
-        try (DatagramSocket socket = new DatagramSocket()) {
-            socket.connect(clientAddress, DISCOVERY_PORT);
-            InetAddress localAddress = socket.getLocalAddress();
-            if (localAddress instanceof Inet4Address && !localAddress.isLoopbackAddress()) {
-                return localAddress.getHostAddress();
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp()) {
+                    continue;
+                }
+
+                for (InterfaceAddress interfaceAddress : iface.getInterfaceAddresses()) {
+                    InetAddress localAddress = interfaceAddress.getAddress();
+                    if (!(localAddress instanceof Inet4Address)) {
+                        continue;
+                    }
+
+                    if (localAddress.isLoopbackAddress() || localAddress.isLinkLocalAddress()) {
+                        continue;
+                    }
+
+                    short prefixLength = interfaceAddress.getNetworkPrefixLength();
+                    if (prefixLength < 0 || prefixLength > 32) {
+                        continue;
+                    }
+
+                    if (isSameSubnet((Inet4Address) localAddress, (Inet4Address) clientAddress, prefixLength)) {
+                        return localAddress.getHostAddress();
+                    }
+                }
             }
         } catch (Exception e) {
         }
@@ -161,7 +185,10 @@ public class ClipboardServer {
                 Enumeration<InetAddress> addresses = iface.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
-                    if (addr instanceof Inet4Address) {
+                    if (addr instanceof Inet4Address
+                            && !addr.isLoopbackAddress()
+                            && !addr.isLinkLocalAddress()
+                            && !"0.0.0.0".equals(addr.getHostAddress())) {
                         return addr.getHostAddress();
                     }
                 }
@@ -170,6 +197,21 @@ public class ClipboardServer {
         }
 
         return null;
+    }
+
+    private static boolean isSameSubnet(Inet4Address localAddress, Inet4Address clientAddress, short prefixLength) {
+        int localIp = ipv4ToInt(localAddress);
+        int clientIp = ipv4ToInt(clientAddress);
+        int mask = prefixLength == 0 ? 0 : -1 << (32 - prefixLength);
+        return (localIp & mask) == (clientIp & mask);
+    }
+
+    private static int ipv4ToInt(Inet4Address address) {
+        byte[] bytes = address.getAddress();
+        return ((bytes[0] & 0xFF) << 24)
+                | ((bytes[1] & 0xFF) << 16)
+                | ((bytes[2] & 0xFF) << 8)
+                | (bytes[3] & 0xFF);
     }
 
     private static void setClipboard(String text) {
